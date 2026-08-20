@@ -144,7 +144,7 @@ emulation, which is fine for an I/O-bound service.
 ### 1. Get the code
 
 ```bash
-git clone https://github.com/<your-username>/whatsapp-handler.git
+git clone https://github.com/Adwaith-NP/whatsapp-handler.git
 cd whatsapp-handler
 ```
 
