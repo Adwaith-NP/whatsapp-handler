@@ -1,0 +1,5 @@
+neonize
+flask
+waitress
+requests
+psycopg2-binary

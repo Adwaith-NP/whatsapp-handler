@@ -1,0 +1,540 @@
+:root {
+  --bg: #0e1116;
+  --panel: #171b22;
+  --border: #262c36;
+  --text: #e6e9ee;
+  --muted: #8b94a3;
+  --accent: #25d366;
+  --accent-press: #1fae54;
+  --error: #ff6b6b;
+  --warn: #f0ad4e;
+  --topbar-h: 58px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  /* Stop iOS inflating text when the phone is rotated. */
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+.container { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
+
+/* ---- App shell: product header, then sidebar + scrolling content ---- */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--topbar-h);
+  padding: 0 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.product { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.product-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(37, 211, 102, 0.14);
+  color: var(--accent);
+  flex: none;
+}
+.product-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Account chip + dropdown ---- */
+.user-menu { position: relative; flex: none; }
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px 5px 5px;
+  font-size: 14px;
+}
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #06210f;
+  font-weight: 700;
+  font-size: 14px;
+  flex: none;
+  text-transform: uppercase;
+}
+.user-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 216px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  z-index: 50;
+}
+.user-dropdown-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.user-name-full { font-size: 14px; font-weight: 600; color: var(--text); word-break: break-all; }
+.dropdown-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.shell { display: flex; flex: 1; min-height: 0; }
+
+.sidebar {
+  width: 232px;
+  flex: none;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: sticky;
+  top: var(--topbar-h);
+  height: calc(100vh - var(--topbar-h));
+}
+
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; }
+.nav-icon { display: inline-flex; align-items: center; justify-content: center; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 12px;
+}
+.nav-item.active { background: rgba(37, 211, 102, 0.12); color: var(--accent); }
+.nav-icon { width: 16px; text-align: center; }
+
+
+.content {
+  flex: 1;
+  min-width: 0;
+  max-width: 720px;
+  padding: 28px 24px 64px;
+}
+.page-title { font-size: 22px; margin: 0 0 18px; }
+
+/* On a phone the sidebar splits in two: a slim sticky header with the brand and
+   Log out, and the navigation as a fixed bottom tab bar within thumb reach --
+   the pattern people already know from mobile apps. */
+@media (max-width: 720px) {
+  .shell { flex-direction: column; }
+
+  .topbar { padding: 0 14px; }
+  .user-name { display: none; }  /* the avatar alone is enough on a phone */
+
+  /* The sidebar box itself disappears; only its nav survives, as tabs. */
+  .sidebar {
+    width: auto;
+    height: auto;
+    position: static;
+    padding: 0;
+    border-right: none;
+    background: transparent;
+  }
+
+  .sidebar nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    flex-direction: row;
+    gap: 4px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    /* Clear of the iPhone home indicator. */
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .nav-item {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 50px;
+    padding: 7px 4px;
+    font-size: 11px;
+    text-align: center;
+  }
+  .nav-icon { width: auto; font-size: 17px; }
+
+  .content {
+    padding: 18px 14px calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+  .page-title { font-size: 20px; margin-bottom: 14px; }
+  .card { padding: 16px; border-radius: 12px; }
+
+  /* 16px keeps iOS Safari from zooming in when a field is focused. */
+  input, textarea, select { font-size: 16px; }
+
+  /* Comfortable thumb targets -- but not for the toggle, whose height is its
+     whole shape. */
+  button { min-height: 44px; }
+  .switch { min-height: 26px; }
+  .link-button { min-height: 0; }
+  .check-row input { width: 18px; height: 18px; }
+
+  .code-block { font-size: 12px; }
+
+  .button-row { flex-wrap: wrap; }
+  .button-row button { min-width: 140px; }
+
+  /* Rows that put an action beside text need to stack, or the text is squeezed
+     to a couple of characters. */
+  .key-row, .key-value, .details-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .key-value code { white-space: normal; word-break: break-all; }
+  .details-head { align-items: flex-start; }
+
+  .toggle-row { gap: 12px; }
+  .spec-table td:first-child { width: 70px; }
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.card h2 { margin: 0 0 14px; font-size: 16px; }
+
+label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+
+input, textarea, select {
+  width: 100%;
+  background: #0f1319;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 12px;
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+
+.primary { background: var(--accent); color: #06210f; width: 100%; margin-top: 16px; }
+
+.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+
+/* Hover styles only where there's a real pointer -- on a touch screen they
+   stick to whatever was tapped last. */
+@media (hover: hover) {
+  .primary:hover:not(:disabled) { background: var(--accent-press); }
+  .ghost:hover { color: var(--text); }
+  .nav-item:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
+  .link-button:hover { text-decoration: underline; }
+  .danger:hover { color: var(--error); background: rgba(255, 107, 107, 0.08); }
+  .user-chip:hover { color: var(--text); border-color: var(--muted); }
+  .dropdown-item:hover { background: rgba(255, 255, 255, 0.06); }
+}
+
+.muted { color: var(--muted); font-size: 14px; }
+.hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+
+.divider { height: 1px; background: var(--border); margin: 22px 0 6px; }
+
+.button-row { display: flex; gap: 10px; margin-top: 16px; }
+.button-row button { flex: 1; }
+
+.reply-box {
+  background: #0f1319;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.error { color: var(--error); font-size: 14px; margin-top: 12px; }
+
+.badge-ok {
+  display: inline-block;
+  background: rgba(37, 211, 102, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.badge-warn {
+  display: inline-block;
+  background: rgba(240, 173, 78, 0.12);
+  color: var(--warn);
+  border: 1px solid rgba(240, 173, 78, 0.35);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+/* ---- Toggle switch + checkbox rows ---- */
+.toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.toggle-label { font-size: 15px; font-weight: 600; }
+
+.switch {
+  flex: none;
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: #2a313c;
+  border: 1px solid var(--border);
+  padding: 0;
+  position: relative;
+  transition: background 0.15s ease;
+}
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.switch.on { background: rgba(37, 211, 102, 0.28); border-color: var(--accent); }
+.switch.on .knob { transform: translateX(20px); background: var(--accent); }
+.switch:disabled { opacity: 0.5; cursor: default; }
+
+.subsection {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0 0;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.check-row input {
+  width: auto;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.check-row .hint { display: inline; margin: 0; }
+
+.timing-row { margin-top: 16px; }
+
+.seconds-field { margin-top: 14px; }
+.seconds-field label { margin: 0 0 6px; }
+.seconds-input { display: flex; align-items: center; gap: 10px; }
+.seconds-input input { width: 96px; flex: none; }
+.unit { color: var(--muted); font-size: 14px; }
+
+.timeline {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+}
+
+.disabled-card { opacity: 0.55; pointer-events: none; }
+
+/* ---- API keys page ---- */
+.mono, code, .code-block {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+code { font-size: 13px; background: rgba(255, 255, 255, 0.06); padding: 1px 5px; border-radius: 5px; }
+
+.link-button {
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.danger { color: var(--error); border-color: rgba(255, 107, 107, 0.35); }
+
+.key-reveal { border-color: rgba(240, 173, 78, 0.45); }
+.key-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+.key-value code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 11px 12px;
+  background: #0f1319;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.key-value button { flex: none; }
+
+.key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.key-row:first-of-type { border-top: none; }
+.key-name { font-size: 15px; font-weight: 600; }
+.key-meta { color: var(--muted); font-size: 12px; margin-top: 3px; word-break: break-word; }
+.key-row button { flex: none; }
+
+.details-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.details-head h2 { margin-bottom: 0; }
+.details-body { margin-top: 18px; }
+.details-body h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 22px 0 8px;
+}
+.details-body h3:first-child { margin-top: 0; }
+
+.spec-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.spec-table td { padding: 7px 0; border-top: 1px solid var(--border); vertical-align: top; }
+.spec-table tr:first-child td { border-top: none; }
+.spec-table td:first-child { width: 90px; padding-right: 12px; color: var(--muted); }
+
+.code-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+}
+.code-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.code-block {
+  margin: 0;
+  padding: 12px;
+  background: #0f1319;
+  font-size: 12.5px;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+
+.qr-box { text-align: center; }
+.qr-frame {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  margin: 14px auto;
+  width: fit-content;
+  max-width: 100%;
+}
+/* The QR is rendered at a fixed 256px; let it shrink to fit a narrow screen. */
+.qr-frame svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 256px;
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.login-card { width: 100%; max-width: 360px; text-align: center; }
+.login-card h1 { font-size: 22px; margin: 0 0 4px; }
+.login-mark { width: 52px; height: 52px; border-radius: 14px; margin-bottom: 12px; }
+.login-card input { margin-top: 10px; }

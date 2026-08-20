@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+node_modules/
+dist/
+staticfiles/
+*.sqlite3
+
+# Claude Code local settings
+.claude/settings.local.json
