@@ -538,3 +538,159 @@ code { font-size: 13px; background: rgba(255, 255, 255, 0.06); padding: 1px 5px;
 .login-card h1 { font-size: 22px; margin: 0 0 4px; }
 .login-mark { width: 52px; height: 52px; border-radius: 14px; margin-bottom: 12px; }
 .login-card input { margin-top: 10px; }
+
+/* ---- Queue page ---- */
+.q-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.q-head h2 { margin-bottom: 0; }
+
+.q-pill {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+.q-pill.live {
+  color: var(--accent);
+  border-color: rgba(37, 211, 102, 0.4);
+  background: rgba(37, 211, 102, 0.12);
+}
+
+.q-person { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.q-person-body { min-width: 0; flex: 1; }
+
+.q-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 50%;
+  background: #2a313c;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 15px;
+}
+.q-avatar.accent { background: var(--accent); color: #06210f; }
+.q-avatar.muted { background: #222833; color: var(--muted); }
+.q-avatar.bad { background: rgba(255, 107, 107, 0.16); color: var(--error); }
+
+.q-name {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  word-break: break-word;
+}
+.q-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.q-meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.q-collecting { color: var(--warn); }
+.q-failed { color: var(--error); }
+
+.q-preview {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: #0f1319;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--text);
+  word-break: break-word;
+}
+.q-preview.small { margin-top: 6px; padding: 7px 9px; font-size: 12.5px; color: var(--muted); }
+
+/* The pipeline a reply moves through */
+.stage-track {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: flex;
+  gap: 4px;
+}
+.stage { flex: 1; min-width: 0; text-align: center; position: relative; }
+.stage::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+}
+.stage:first-child::before { display: none; }
+.stage-dot {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 0 auto 8px;
+  border-radius: 50%;
+  background: #2a313c;
+  border: 2px solid var(--border);
+}
+.stage-label { font-size: 11px; color: var(--muted); }
+.stage.done .stage-dot { background: var(--accent); border-color: var(--accent); opacity: 0.55; }
+.stage.done::before { background: rgba(37, 211, 102, 0.5); }
+.stage.active .stage-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.18);
+  animation: q-pulse 1.4s ease-in-out infinite;
+}
+.stage.active .stage-label { color: var(--accent); font-weight: 600; }
+.stage.active::before { background: rgba(37, 211, 102, 0.5); }
+
+@keyframes q-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.16); }
+  50%      { box-shadow: 0 0 0 7px rgba(37, 211, 102, 0.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage.active .stage-dot { animation: none; }
+}
+
+.q-list { list-style: none; margin: 16px 0 0; padding: 0; }
+.q-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.q-item:first-child { border-top: none; }
+.q-position {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.done-item { opacity: 0.75; }
+
+@media (max-width: 720px) {
+  .stage-label { font-size: 9.5px; }
+  .q-avatar { width: 34px; height: 34px; font-size: 14px; }
+}

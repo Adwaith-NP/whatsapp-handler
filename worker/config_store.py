@@ -31,6 +31,7 @@ DEFAULTS = {
     "read_receipt_enabled": False,
     "read_receipt_delay": 5,
     "typing_delay": 3,
+    "batch_window": 6,
     "api_key": "",
     "model": "",
     "instruction": "",
@@ -56,7 +57,8 @@ def load(force=False):
         with psycopg2.connect(DATABASE_URL) as conn, conn.cursor() as cur:
             cur.execute(
                 "SELECT reply_to_all, skip_direct, skip_groups, read_receipt_enabled, "
-                f"read_receipt_delay, typing_delay FROM {AUTOMATION_TABLE} ORDER BY id LIMIT 1"
+                "read_receipt_delay, typing_delay, batch_window "
+                f"FROM {AUTOMATION_TABLE} ORDER BY id LIMIT 1"
             )
             row = cur.fetchone()
             if row:
@@ -67,6 +69,7 @@ def load(force=False):
                     value["read_receipt_enabled"],
                     value["read_receipt_delay"],
                     value["typing_delay"],
+                    value["batch_window"],
                 ) = row
 
             cur.execute(

@@ -26,6 +26,8 @@ export const getMe = () => req("/auth/me/");
 
 export const getStatus = () => req("/whatsapp/status/");
 
+export const getQueue = () => req("/whatsapp/queue/");
+
 export const sendMessage = (phone, message) =>
   req("/whatsapp/send/", { method: "POST", body: JSON.stringify({ phone, message }) });
 

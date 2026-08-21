@@ -33,6 +33,7 @@ export default function AutomationPage({ onNavigate }) {
         read_receipt_enabled: next.read_receipt_enabled,
         read_receipt_delay: next.read_receipt_delay,
         typing_delay: next.typing_delay,
+        batch_window: next.batch_window,
       });
       setSettings(saved);
       setNote({ ok: true, text: "Saved." });
@@ -228,6 +229,29 @@ export default function AutomationPage({ onNavigate }) {
                   ? "Counted from the moment the blue ticks appear."
                   : "Counted from the moment the message arrives."}{" "}
                 The reply is sent as soon as the AI finishes.
+              </p>
+            </div>
+
+            <div className="seconds-field">
+              <label htmlFor="batch-window">Wait for follow-up messages</label>
+              <div className="seconds-input">
+                <input
+                  id="batch-window"
+                  type="number"
+                  inputMode="numeric"
+                  min={settings.delay_min ?? 1}
+                  max={settings.delay_max ?? 60}
+                  value={settings.batch_window}
+                  disabled={!aiReady || busy}
+                  onChange={(e) => typeSeconds("batch_window", e.target.value)}
+                  onBlur={() => commitSeconds("batch_window", 6)}
+                />
+                <span className="unit">seconds</span>
+              </div>
+              <p className="hint">
+                People often split one thought across several quick messages.
+                They are held this long after the last one and answered together
+                — and the wait keeps extending while the person is still typing.
               </p>
             </div>
 

@@ -25,6 +25,7 @@ same "linked device" channel WhatsApp Web uses, driven by the open-source
 - [First-time setup in the portal](#first-time-setup-in-the-portal)
 - [Configuration reference](#configuration-reference)
 - [The portal](#the-portal)
+- [The reply queue](#the-reply-queue)
 - [Public REST API](#public-rest-api)
 - [Where your data lives](#where-your-data-lives)
 - [Security](#security)
@@ -73,6 +74,8 @@ own, marketing blasts, or unsolicited messaging. See the
 | **Scope control** | Exclude one-to-one chats and/or group chats. Groups are excluded by default. |
 | **Conversation memory** | Per-chat history (last 10 turns, 24-hour window) so conversations have continuity. Contacts never share context. |
 | **Human-like pacing** | Configurable blue-tick delay and typing-indicator delay, 1–60 seconds each. |
+| **Reply queue** | One person answered at a time, in arrival order. Messages that arrive mid-reply queue instead of being dropped. |
+| **Message batching** | Several quick messages from the same person are merged and answered once, with the wait extending while they are still typing. |
 | **Typing indicator** | The other person sees "typing…" while the model works, refreshed until the reply is ready. |
 | **REST API** | Hash-stored API keys, a versioned `POST /api/v1/messages/` endpoint, copy-paste examples in the UI. |
 | **Test tools** | Send a test WhatsApp message and probe Gemini with your instructions before going live. |
@@ -267,9 +270,10 @@ tells you so and links back to Settings.
 - **Reply to every incoming message** — the master switch.
 - **Don't reply in these chats** — tick *One-person chats* and/or *Group chats*
   to exclude them. Group chats are excluded by default.
-- **Timing** — *Blue ticks* (optional, with a delay) and *Typing starts after*.
-  Both 1–60 seconds. With blue ticks at 5s and typing at 3s, a message is read
-  at 5s, shows "typing…" from 8s, and is answered when the model finishes.
+- **Timing** — *Blue ticks* (optional, with a delay), *Typing starts after*, and
+  *Wait for follow-up messages*. All 1–60 seconds. With blue ticks at 5s and
+  typing at 3s, a message is read at 5s, shows "typing…" from 8s, and is answered
+  when the model finishes.
 
 Changes save the moment you click, and the worker picks them up within about
 five seconds.
@@ -319,13 +323,14 @@ and your API keys.
 
 ## The portal
 
-Three pages, each with its own URL, so a refresh or a bookmark keeps you where
+Four pages, each with its own URL, so a refresh or a bookmark keeps you where
 you were.
 
 | Page | URL | Contains |
 |---|---|---|
 | **Settings** | `/settings` | Account connection (QR / status), Gemini AI configuration, send a test message |
 | **Automation** | `/automation` | Auto-reply switch, chat-type exclusions, timing |
+| **Queue** | `/queue` | Live view: who is being answered now, who is next, what was just answered |
 | **API** | `/api-keys` | Create, list and delete API keys; full usage documentation |
 
 The account menu is in the top-right corner: your initial, your username, and
@@ -333,6 +338,33 @@ The account menu is in the top-right corner: your initial, your username, and
 
 > The API page lives at `/api-keys`, not `/api`, because nginx proxies everything
 > under `/api/` to Django.
+
+---
+
+## The reply queue
+
+Replies take a few seconds, and people rarely send one tidy message. Two
+mechanisms handle that, both visible on the **Queue** page.
+
+**Nothing is dropped.** While one chat is being answered, messages from anyone
+else join a queue instead of being discarded. Chats are answered one at a time,
+in the order they arrived.
+
+**Bursts are merged.** When someone sends "hey", "are you there", "I need the
+price list" in quick succession, those are held and answered as a single message
+rather than three. The hold is the *Wait for follow-up messages* setting
+(default 6 seconds after the last message), and it extends by 4 seconds each time
+WhatsApp tells us that person is typing — so a thought still being composed is
+never answered halfway. One chat can never stall the queue for more than 90
+seconds.
+
+The Queue page shows the chat being answered right now and which of the five
+stages it is in — *Collecting → Reading → Pausing → Thinking → Sending* — plus
+everyone waiting with their position and message count, and what was just
+answered, including failures and their reason. It polls about once a second.
+
+The queue lives entirely in the worker's memory: nothing about it is written to
+the database, and a worker restart clears it.
 
 ---
 
@@ -643,7 +675,7 @@ Rebuild the `frontend` service to see changes.
 - Webhooks for incoming messages.
 - A message log or conversation viewer in the portal.
 - Per-key scopes, quotas or expiry for API keys.
-- Surfacing auto-reply failures in the UI (they are in the worker log only).
+- Surfacing auto-reply failures beyond the Queue page's "Just answered" list.
 
 ---
 

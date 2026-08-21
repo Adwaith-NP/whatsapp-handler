@@ -16,6 +16,12 @@ class WorkerError(RuntimeError):
         self.status_code = status_code
 
 
+def get_queue():
+    r = requests.get(f"{settings.WORKER_URL}/queue", timeout=5)
+    r.raise_for_status()
+    return r.json()
+
+
 def get_status():
     r = requests.get(f"{settings.WORKER_URL}/status", timeout=5)
     r.raise_for_status()

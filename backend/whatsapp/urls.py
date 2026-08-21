@@ -7,6 +7,7 @@ urlpatterns = [
     path("auth/login/", obtain_auth_token),
     path("auth/me/", views.me_view),
     path("whatsapp/status/", views.status_view),
+    path("whatsapp/queue/", views.queue_view),
     path("whatsapp/send/", views.send_view),
     path("gemini/settings/", views.gemini_settings_view),
     path("gemini/test/", views.gemini_test_view),

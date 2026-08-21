@@ -26,6 +26,7 @@ from waitress import serve
 from neonize.client import NewClient
 from neonize.proto.waCompanionReg.WAWebProtobufsCompanionReg_pb2 import DeviceProps
 from neonize.events import (
+    ChatPresenceEv,
     ConnectedEv,
     DisconnectedEv,
     KeepAliveRestoredEv,
@@ -73,8 +74,35 @@ _state = {
 _lock = threading.Lock()
 _restarting = False
 
-# Chats with an auto-reply in flight (guards against overlapping answers).
-_replying = set()
+# ---------------------------------------------------------------------------
+# Reply queue
+#
+# Two problems this solves:
+#  1. A reply takes seconds (model latency + the configured delays). Anything
+#     arriving in that window used to be dropped on the floor. Now it queues.
+#  2. People split one thought over several quick messages ("wait", "actually",
+#     "can you also"). Answering each line separately is wrong and wastes quota,
+#     so a chat is held briefly after its last message and the whole burst is
+#     answered once. The hold is extended while they are still typing.
+#
+# One chat is answered at a time, in arrival order, which is also what makes the
+# Queue page in the portal meaningful.
+# ---------------------------------------------------------------------------
+
+# How often the dispatcher looks for work.
+QUEUE_TICK_S = 0.5
+# Never hold a chat longer than this, however much they keep typing.
+MAX_HOLD_S = 90
+# Seconds added past the moment we see a "typing" signal from them.
+TYPING_GRACE_S = 4
+# Completed replies kept for the portal's Queue page.
+RECENT_KEEP = 12
+
+_queue_lock = threading.Lock()
+_pending = {}    # chat_key -> entry being collected / waiting its turn
+_order = []      # chat_keys, arrival order
+_current = None  # the entry being answered right now
+_recent = []     # newest first, for the Queue page
 
 # WhatsApp clears the "typing…" bubble by itself after a few seconds, so it has
 # to be refreshed while the AI is still thinking.
@@ -281,32 +309,40 @@ def _mark_read(message, chat):
         log.warning("Could not mark message read: %s", exc)
 
 
-def _auto_reply(message, text, chat, is_group):
-    """Ask Gemini for a reply and send it. Runs on its own thread.
+def _stage(entry, stage):
+    """Record what is happening to the chat being answered, for the Queue page."""
+    with _queue_lock:
+        entry["stage"] = stage
+        entry["stage_at"] = time.time()
 
-    The pacing mirrors a person picking up their phone: the message is read
-    (blue ticks) after one delay, then "typing…" starts after a second delay,
-    then the answer lands whenever the model is done.
-    """
-    chat_key = f"{chat.User}@{chat.Server}"
+
+def _answer(entry):
+    """Answer one queued chat: its whole burst of messages, as a single reply."""
+    chat = entry["chat"]
+    chat_key = entry["chat_key"]
+    # The burst, joined into one message so the model sees the complete thought.
+    text = "\n".join(entry["texts"]).strip()
     cfg = config_store.load()
 
-    if cfg["read_receipt_enabled"]:
-        time.sleep(cfg["read_receipt_delay"])
-        _set_presence(Presence.AVAILABLE)  # ticks only turn blue for an online client
-        _mark_read(message, chat)
-
-    # Counted from the blue ticks when those are on, otherwise from arrival.
-    time.sleep(cfg["typing_delay"])
-
-    # Show "typing…" for as long as the model takes, so the other person sees
-    # something is happening instead of silence.
-    _set_presence(Presence.AVAILABLE)
-    stop_typing = threading.Event()
-    typist = threading.Thread(target=_hold_typing, args=(chat, stop_typing), daemon=True)
-    typist.start()
-
     try:
+        if cfg["read_receipt_enabled"]:
+            _stage(entry, "reading")
+            time.sleep(cfg["read_receipt_delay"])
+            _set_presence(Presence.AVAILABLE)  # ticks only turn blue when online
+            _mark_read(entry["last_message"], chat)
+
+        # Counted from the blue ticks when those are on, otherwise from arrival.
+        _stage(entry, "waiting")
+        time.sleep(cfg["typing_delay"])
+
+        # Show "typing…" for as long as the model takes, so the other person
+        # sees something is happening instead of silence.
+        _stage(entry, "thinking")
+        _set_presence(Presence.AVAILABLE)
+        stop_typing = threading.Event()
+        typist = threading.Thread(target=_hold_typing, args=(chat, stop_typing), daemon=True)
+        typist.start()
+
         # The thread so far with this chat only -- every contact has its own.
         past = memory.history(chat_key)
         try:
@@ -324,27 +360,144 @@ def _auto_reply(message, text, chat, is_group):
             typist.join(timeout=2)
             _stop_typing(chat)
 
+        _stage(entry, "sending")
         client.send_message(chat, reply)
         # Only remember exchanges that actually happened: if the model failed,
         # neither side is recorded, so the thread has no phantom turns.
         memory.remember(chat_key, memory.ROLE_USER, text)
         memory.remember(chat_key, memory.ROLE_MODEL, reply)
+        entry["outcome"] = "replied"
         log.info(
-            "Auto-replied in %s (%d chars, %d turns of context)",
+            "Auto-replied in %s (%d messages merged, %d chars, %d turns of context)",
             chat_key,
+            len(entry["texts"]),
             len(reply),
             len(past),
         )
     except gemini.GeminiError as exc:
         # A bad key or a quota wall shouldn't spam the chat with error text.
+        entry["outcome"] = "failed"
+        entry["error"] = str(exc)
         log.error("Auto-reply skipped for %s: %s", chat_key, exc)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        entry["outcome"] = "failed"
+        entry["error"] = str(exc)
         log.exception("Auto-reply failed for %s", chat_key)
     finally:
         # Back offline, so the account isn't shown as online between replies.
         _set_presence(Presence.UNAVAILABLE)
-        with _lock:
-            _replying.discard(chat_key)
+
+
+def _enqueue(message, text, chat, is_group, name):
+    """Add a message to its chat's pending burst, queueing the chat if new."""
+    chat_key = f"{chat.User}@{chat.Server}"
+    now = time.time()
+    window = config_store.load()["batch_window"]
+
+    with _queue_lock:
+        entry = _pending.get(chat_key)
+        if entry is None:
+            entry = {
+                "chat_key": chat_key,
+                "chat": chat,
+                "name": name or chat.User,
+                "is_group": is_group,
+                "texts": [],
+                "queued_at": now,
+                "stage": "collecting",
+                "stage_at": now,
+            }
+            _pending[chat_key] = entry
+            _order.append(chat_key)
+
+        entry["texts"].append(text)
+        entry["last_message"] = message
+        entry["last_at"] = now
+        # Hold for the batch window after this message, but never past MAX_HOLD_S
+        # from the first one -- someone typing forever can't stall the queue.
+        entry["ready_at"] = min(entry["queued_at"] + MAX_HOLD_S, now + window)
+        position = _order.index(chat_key) + 1
+        count = len(entry["texts"])
+
+    log.info(
+        "Queued message from %s (#%d in this burst, position %d)",
+        chat_key, count, position,
+    )
+
+
+def _extend_hold(chat_key):
+    """They are typing -- wait a little longer before answering."""
+    now = time.time()
+    with _queue_lock:
+        entry = _pending.get(chat_key)
+        if not entry:
+            return
+        entry["ready_at"] = min(
+            entry["queued_at"] + MAX_HOLD_S, max(entry["ready_at"], now + TYPING_GRACE_S)
+        )
+        entry["stage"] = "collecting"
+
+
+def _take_next():
+    """Pop the first queued chat whose collecting window has closed."""
+    global _current
+    now = time.time()
+    with _queue_lock:
+        if _current is not None:
+            return None
+        for chat_key in _order:
+            entry = _pending[chat_key]
+            if entry["ready_at"] <= now:
+                _order.remove(chat_key)
+                del _pending[chat_key]
+                entry["stage"] = "starting"
+                entry["stage_at"] = now
+                entry["started_at"] = now
+                _current = entry
+                return entry
+    return None
+
+
+def _finish(entry):
+    global _current
+    with _queue_lock:
+        entry["finished_at"] = time.time()
+        _recent.insert(0, entry)
+        del _recent[RECENT_KEEP:]
+        _current = None
+
+
+def _dispatcher():
+    """One chat answered at a time, in arrival order."""
+    while True:
+        time.sleep(QUEUE_TICK_S)
+        if _restarting:
+            return
+        try:
+            entry = _take_next()
+            if entry is None:
+                continue
+            _answer(entry)
+            _finish(entry)
+        except Exception:  # noqa: BLE001 - the queue must never die
+            log.exception("Dispatcher error")
+            with _queue_lock:
+                globals()["_current"] = None
+
+
+@client.event(ChatPresenceEv)
+def _on_chat_presence(_client, ev):
+    """Someone is typing at us -- if they are mid-burst, wait for the rest."""
+    try:
+        source = ev.MessageSource
+        if source.IsFromMe:
+            return
+        if ev.State != ChatPresence.CHAT_PRESENCE_COMPOSING:
+            return
+        chat = source.Chat
+        _extend_hold(f"{chat.User}@{chat.Server}")
+    except Exception:  # noqa: BLE001
+        log.debug("Could not handle chat presence", exc_info=True)
 
 
 @client.event(MessageEv)
@@ -378,18 +531,9 @@ def _on_message(_client, message):
         if not is_group and cfg["skip_direct"]:
             return
 
-        # One reply at a time per chat, so a rapid burst can't fan out into
-        # several overlapping answers.
-        chat_key = f"{chat.User}@{chat.Server}"
-        with _lock:
-            if chat_key in _replying:
-                log.info("Already replying in %s, skipping this one", chat_key)
-                return
-            _replying.add(chat_key)
-
-        threading.Thread(
-            target=_auto_reply, args=(message, text, chat, is_group), daemon=True
-        ).start()
+        # Nothing is dropped any more: it joins the queue, merging with anything
+        # else this chat has sent in the last few seconds.
+        _enqueue(message, text, chat, is_group, message.Info.Pushname)
     except Exception:  # noqa: BLE001 - a bad message must not kill the handler
         log.exception("Failed to handle incoming message")
 
@@ -437,6 +581,49 @@ def _watchdog():
 app = Flask(__name__)
 
 
+def _view(entry, now, position=None):
+    """One queue entry, shaped for the portal (no full message bodies)."""
+    joined = " / ".join(entry["texts"])
+    return {
+        "chat": entry["chat_key"],
+        "name": entry["name"],
+        "is_group": entry["is_group"],
+        "messages": len(entry["texts"]),
+        "preview": joined[:90] + ("…" if len(joined) > 90 else ""),
+        "stage": entry["stage"],
+        "position": position,
+        "waiting_for": round(now - entry["queued_at"], 1),
+        "ready_in": round(max(0.0, entry.get("ready_at", now) - now), 1),
+        "outcome": entry.get("outcome"),
+        "error": entry.get("error"),
+        "took": (
+            round(entry["finished_at"] - entry["started_at"], 1)
+            if entry.get("finished_at") and entry.get("started_at")
+            else None
+        ),
+    }
+
+
+@app.get("/queue")
+def queue():
+    """Live view of who is being answered and who is next."""
+    now = time.time()
+    with _queue_lock:
+        current = _view(_current, now) if _current else None
+        waiting = [
+            _view(_pending[key], now, position=i + 1) for i, key in enumerate(_order)
+        ]
+        recent = [_view(e, now) for e in _recent]
+    return jsonify(
+        {
+            "current": current,
+            "waiting": waiting,
+            "recent": recent,
+            "waiting_count": len(waiting),
+        }
+    )
+
+
 @app.get("/status")
 def status():
     with _lock:
@@ -480,6 +667,7 @@ if __name__ == "__main__":
     # loop on the main thread (this blocks and keeps the process alive).
     threading.Thread(target=_serve_api, daemon=True).start()
     threading.Thread(target=_watchdog, daemon=True).start()
+    threading.Thread(target=_dispatcher, daemon=True).start()
     log.info("Worker API listening on :8100 -- starting WhatsApp client")
     client.connect()
     # connect() returns when the Go context is cancelled (i.e. we asked for a

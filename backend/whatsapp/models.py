@@ -142,6 +142,12 @@ class AutomationSettings(models.Model):
     read_receipt_delay = models.PositiveSmallIntegerField(default=5)
     typing_delay = models.PositiveSmallIntegerField(default=3)
 
+    # People often split one thought across several quick messages. We hold a
+    # chat this many seconds after its last message before answering, so the
+    # whole thought is answered once instead of line by line. Extended while
+    # they are still typing.
+    batch_window = models.PositiveSmallIntegerField(default=6)
+
     updated_at = models.DateTimeField(auto_now=True)
 
     DELAY_MIN = 1

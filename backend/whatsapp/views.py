@@ -32,6 +32,16 @@ def me_view(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def queue_view(request):
+    """Live reply queue, straight from the worker (never persisted)."""
+    try:
+        return Response(services.get_queue())
+    except Exception as exc:  # noqa: BLE001
+        return Response({"error": str(exc)}, status=502)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def status_view(request):
     try:
         return Response(services.get_status())
@@ -254,6 +264,8 @@ def automation_settings_view(request):
             )
         if "typing_delay" in request.data:
             auto.typing_delay = _as_delay(request.data["typing_delay"], auto.typing_delay)
+        if "batch_window" in request.data:
+            auto.batch_window = _as_delay(request.data["batch_window"], auto.batch_window)
         auto.save()
 
     # The automation is inert without a key, so the page needs to know.
@@ -266,6 +278,7 @@ def automation_settings_view(request):
             "read_receipt_enabled": auto.read_receipt_enabled,
             "read_receipt_delay": auto.read_receipt_delay,
             "typing_delay": auto.typing_delay,
+            "batch_window": auto.batch_window,
             "delay_min": AutomationSettings.DELAY_MIN,
             "delay_max": AutomationSettings.DELAY_MAX,
             "updated_at": auto.updated_at,

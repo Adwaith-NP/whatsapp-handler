@@ -58,6 +58,28 @@ export function AutomationIcon({ size = 17 }) {
   );
 }
 
+export function QueueIcon({ size = 17 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="5" cy="6" r="2" />
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="5" cy="18" r="2" />
+      <path d="M10 6h10M10 12h10M10 18h6" />
+    </svg>
+  );
+}
+
 export function KeyIcon({ size = 17 }) {
   return (
     <svg

@@ -8,10 +8,12 @@ import {
   SettingsIcon,
   AutomationIcon,
   KeyIcon,
+  QueueIcon,
 } from "./components/Icons.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import AutomationPage from "./pages/AutomationPage.jsx";
 import ApiPage from "./pages/ApiPage.jsx";
+import QueuePage from "./pages/QueuePage.jsx";
 
 const PRODUCT_NAME = "WhatsApp Handler";
 
@@ -20,6 +22,7 @@ const PRODUCT_NAME = "WhatsApp Handler";
 const PAGES = [
   { id: "settings", path: "/settings", label: "Settings", Icon: SettingsIcon, Page: SettingsPage },
   { id: "automation", path: "/automation", label: "Automation", Icon: AutomationIcon, Page: AutomationPage },
+  { id: "queue", path: "/queue", label: "Queue", Icon: QueueIcon, Page: QueuePage },
   { id: "api", path: "/api-keys", label: "API", Icon: KeyIcon, Page: ApiPage },
 ];
 const HOME = PAGES[0];
